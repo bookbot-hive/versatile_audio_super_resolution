@@ -925,7 +925,7 @@ class LatentDiffusion(DDPM):
             mel = mel.squeeze(1)
         mel = mel.permute(0, 2, 1)
         waveform = self.first_stage_model.vocoder(mel)
-        waveform = waveform.cpu().detach().numpy()
+        waveform = waveform.to(torch.float32).cpu().detach().numpy()
         if save:
             self.save_waveform(waveform, savepath, name)
         return waveform

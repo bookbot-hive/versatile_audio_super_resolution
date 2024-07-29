@@ -88,6 +88,8 @@ parser.add_argument(
     default="_AudioSR_Processed_48K",
 )
 
+parser.add_argument("--fp16", action="store_true", help="Use bfloat16 precision")
+
 args = parser.parse_args()
 torch.set_float32_matmul_precision("high")
 save_path = os.path.join(args.save_path, get_time())
@@ -108,16 +110,17 @@ if(args.input_file_list):
     files_todo = read_list(args.input_file_list)
 else: 
     files_todo = [input_file]
-    
+
 for input_file in files_todo:
     name = os.path.splitext(os.path.basename(input_file))[0] + args.suffix
 
-    waveform = super_resolution(
-        audiosr,
-        input_file,
-        seed=random_seed,
-        guidance_scale=guidance_scale,
-        ddim_steps=args.ddim_steps,
-        latent_t_per_second=latent_t_per_second
-    )
+    with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=args.fp16):
+        waveform = super_resolution(
+            audiosr,
+            input_file,
+            seed=random_seed,
+            guidance_scale=guidance_scale,
+            ddim_steps=args.ddim_steps,
+            latent_t_per_second=latent_t_per_second
+        )
     save_wave(waveform, inputpath=input_file, savepath=save_path, name=name, samplerate=sample_rate)
