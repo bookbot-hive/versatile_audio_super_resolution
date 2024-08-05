@@ -4,6 +4,7 @@ import torch
 import logging
 from audiosr import super_resolution, build_model, save_wave, get_time, read_list
 import argparse
+from tqdm.auto import tqdm
 
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
 matplotlib_logger = logging.getLogger('matplotlib')
@@ -85,14 +86,14 @@ parser.add_argument(
     type=str,
     required=False,
     help="Suffix for the output file",
-    default="_AudioSR_Processed_48K",
+    default="",
 )
 
 parser.add_argument("--fp16", action="store_true", help="Use bfloat16 precision")
 
 args = parser.parse_args()
 torch.set_float32_matmul_precision("high")
-save_path = os.path.join(args.save_path, get_time())
+save_path = args.save_path
 
 assert args.input_file_list is not None or args.input_audio_file is not None,"Please provide either a list of audio files or a single audio file"
 
@@ -111,16 +112,23 @@ if(args.input_file_list):
 else: 
     files_todo = [input_file]
 
-for input_file in files_todo:
+for input_file in tqdm(files_todo):
     name = os.path.splitext(os.path.basename(input_file))[0] + args.suffix
 
+    if os.path.exists(os.path.join(save_path, name) + ".wav"):
+        continue
+
     with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=args.fp16):
-        waveform = super_resolution(
-            audiosr,
-            input_file,
-            seed=random_seed,
-            guidance_scale=guidance_scale,
-            ddim_steps=args.ddim_steps,
-            latent_t_per_second=latent_t_per_second
-        )
+        try:
+            waveform = super_resolution(
+                audiosr,
+                input_file,
+                seed=random_seed,
+                guidance_scale=guidance_scale,
+                ddim_steps=args.ddim_steps,
+                latent_t_per_second=latent_t_per_second
+            )
+        except RuntimeError as e:
+            continue
+
     save_wave(waveform, inputpath=input_file, savepath=save_path, name=name, samplerate=sample_rate)
