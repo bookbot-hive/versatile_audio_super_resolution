@@ -1,0 +1,1 @@
+audiosr -il althaf_thalia_emphasis_files.lst -s ../upsample -d cuda:1
